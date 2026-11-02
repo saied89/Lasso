@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  typeViewScrolled: wait for flings to stop before reading the screen.
+  typeWindowStateChanged: close the overlay when another app comes to the front.
+  typeWindowsChanged: notice when Translate's popup closes, to bring the overlay back.
+  flagRetrieveInteractiveWindows: needed to read every window, not just the active one.
+  canTakeScreenshot: recognize text the app doesn't expose (web views, images, games).
+-->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeViewScrolled|typeWindowStateChanged|typeWindowsChanged"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagRequestFilterKeyEvents|flagRetrieveInteractiveWindows"
+    android:canRequestFilterKeyEvents="true"
+    android:canRetrieveWindowContent="true"
+    android:canTakeScreenshot="true"
+    android:description="@string/service_description"
+    android:notificationTimeout="0"
+    android:settingsActivity="dev.saeed.lasso.MainActivity" />
