@@ -13,6 +13,18 @@ Everything needed to create the Play listing. Steps marked **(you)** need your G
 | `graphics/screenshot-1..3.png` | Phone screenshots, 1080×1920 |
 | `listing.md` | App name, descriptions, category, contact details |
 | `../PRIVACY.md` | Privacy policy (needs to be pushed to GitHub before you submit) |
+| `graphics/src/` | Script and raw screenshots that the graphics are rendered from |
+
+## Updating the graphics
+
+1. Take new raw screenshots on a phone or the emulator (Pixel 9 Pro shape, touch indicators off) and save them as `graphics/src/raw/1.png`, `2.png`, `3.png`:
+
+   ```sh
+   adb exec-out screencap -p > play/graphics/src/raw/1.png
+   ```
+
+2. Edit the captions in `SCREENSHOTS` in `graphics/src/render.py` if needed. To add a screenshot, add a raw file and a line there.
+3. Run `python3 play/graphics/src/render.py`. It needs Google Chrome, and rewrites every PNG in `graphics/`. The icon comes from `docs/icon.svg`.
 
 To rebuild the bundle:
 
