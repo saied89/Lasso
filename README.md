@@ -1,4 +1,6 @@
-# Lasso
+<p align="center"><img src="docs/icon.svg" width="160" alt="Lasso icon: a lasso loop around one line of text"></p>
+
+<h1 align="center">Lasso</h1>
 
 Select any text on your Android screen, in any app. Then copy, share or translate it.
 
