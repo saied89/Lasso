@@ -35,7 +35,6 @@ class LassoService : AccessibilityService() {
     companion object {
         private const val TAG = "Lasso"
         private const val GOOGLE_TRANSLATE = "com.google.android.apps.translate"
-        private const val DOUBLE_PRESS_MS = 350L
         private const val SCROLL_QUIET_MS = 120L
         private const val SCROLL_WAIT_MAX_MS = 600L
         /** How long to wait for an app we started to appear before giving up on it. */
@@ -70,10 +69,8 @@ class LassoService : AccessibilityService() {
     /** Created on first use; only touched on the worker thread. */
     private var ocr: Ocr? = null
 
-    // Volume double-press tracking.
-    private var lastVolumeDownAt = 0L
-    /** Key codes whose ACTION_UP we must swallow, because we swallowed their ACTION_DOWN. */
-    private val swallowUp = mutableSetOf<Int>()
+    /** Back closed the overlay; swallow the rest of that press so the app below doesn't go back too. */
+    private var swallowingBack = false
 
     private var lastScrollAt = 0L
 
@@ -139,47 +136,17 @@ class LassoService : AccessibilityService() {
     // ---- Keys ----
 
     override fun onKeyEvent(event: KeyEvent): Boolean {
-        val code = event.keyCode
-        if (event.action == KeyEvent.ACTION_UP && swallowUp.remove(code)) return true
-        // Holding a key we swallowed: swallow its repeats too, or the volume keeps dropping.
-        if (event.repeatCount > 0 && code in swallowUp) return true
-
-        // While the overlay is opening or open, volume keys don't change the volume;
-        // once it's open, they and Back close it.
-        val isVolume = code == KeyEvent.KEYCODE_VOLUME_DOWN || code == KeyEvent.KEYCODE_VOLUME_UP
-        val active = state == State.PREPARING || state == State.SHOWING
-        if ((active && isVolume) || (state == State.SHOWING && code == KeyEvent.KEYCODE_BACK)) {
-            if (event.action == KeyEvent.ACTION_DOWN) {
-                if (event.repeatCount == 0 && state == State.SHOWING) dismiss()
-                swallowUp += code
-            }
+        if (event.keyCode != KeyEvent.KEYCODE_BACK) return false
+        if (event.action == KeyEvent.ACTION_DOWN && state == State.SHOWING) {
+            if (event.repeatCount == 0) dismiss()
+            swallowingBack = true
             return true
         }
-
-        if (code != KeyEvent.KEYCODE_VOLUME_DOWN || !Prefs.volumeTrigger(this)) return false
-        if (event.action != KeyEvent.ACTION_DOWN || event.repeatCount > 0) return false
-
-        val now = event.eventTime
-        if (now - lastVolumeDownAt <= DOUBLE_PRESS_MS) {
-            lastVolumeDownAt = 0
-            swallowUp += code
-            if (Prefs.restoreVolume(this)) undoFirstPress()
-            trigger()
+        if (swallowingBack) {
+            if (event.action == KeyEvent.ACTION_UP) swallowingBack = false
             return true
         }
-        // First press: let it through right away; we can't hold it and replay it later.
-        lastVolumeDownAt = now
         return false
-    }
-
-    /** The first press already lowered the volume one step; put it back. */
-    private fun undoFirstPress() {
-        try {
-            audioManager.adjustSuggestedStreamVolume(AudioManager.ADJUST_RAISE, AudioManager.USE_DEFAULT_STREAM_TYPE, 0)
-        } catch (e: SecurityException) {
-            // Raising the ringer out of Do Not Disturb needs a permission we don't have.
-            Log.w(TAG, "Could not restore volume", e)
-        }
     }
 
     // ---- Trigger ----

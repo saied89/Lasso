@@ -5,6 +5,7 @@
   typeWindowsChanged: notice when Translate's popup closes, to bring the overlay back.
   flagRetrieveInteractiveWindows: needed to read every window, not just the active one.
   flagRequestAccessibilityButton: a floating button (or two-finger swipe up) that opens Lasso.
+  flagRequestFilterKeyEvents: Back closes the overlay without the app below going back too.
   canTakeScreenshot: recognize text the app doesn't expose (web views, images, games).
 -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"

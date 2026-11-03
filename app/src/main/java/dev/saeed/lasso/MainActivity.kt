@@ -75,7 +75,7 @@ private fun SettingsScreen(serviceEnabled: Boolean, modifier: Modifier = Modifie
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text("Lasso", style = MaterialTheme.typography.headlineMedium)
-        Text("Double-tap the back of your phone, or double-press Volume Down, in any app. The screen dims, and all text becomes selectable.")
+        Text("Double-tap the back of your phone, or tap the accessibility button, in any app. The screen dims, and all text becomes selectable.")
 
         if (serviceEnabled) {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
@@ -101,8 +101,6 @@ private fun SettingsScreen(serviceEnabled: Boolean, modifier: Modifier = Modifie
                 style = MaterialTheme.typography.bodySmall,
             )
         }
-        SettingSwitch(Prefs.VOLUME_TRIGGER, "Double-press Volume Down", "Opens text selection.")
-        SettingSwitch(Prefs.RESTORE_VOLUME, "Undo the volume change", "The first press lowers the volume one step. Raise it back.")
         SettingSwitch(Prefs.OCR, "Recognize text in the screenshot", "Makes words selectable in web views, images and games. Text is recognized on the phone.")
         SettingSwitch(Prefs.PAUSE_MEDIA, "Pause media while selecting", "Pauses videos and music, and resumes them when you're done.")
 
@@ -128,7 +126,7 @@ private fun DisclosureCard(onAgree: () -> Unit) {
                 "Lasso uses Android's accessibility service to:\n" +
                     "• read the text shown on screen, only when you trigger it, to make it selectable\n" +
                     "• take a screenshot at that moment and recognize the text in it, on the phone\n" +
-                    "• listen for volume key presses, to notice the double-press\n\n" +
+                    "• watch for the Back key while Lasso is open, to close it\n\n" +
                     "Nothing is saved or sent anywhere. Lasso has no internet access."
             )
             Text(
