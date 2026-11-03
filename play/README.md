@@ -1,45 +1,26 @@
 # Publishing Lasso on Google Play
 
-Everything needed to create the Play listing. Steps marked **(you)** need your Google account.
+Everything needed to create the Play listing, in the order Play Console asks for it. Before you start, push the repo so the privacy policy URL works.
 
 ## What's in this folder
 
 | File | Use |
 |---|---|
-| `Lasso-1.1.0.aab` | The App Bundle to upload (version 1.1.0, code 2), signed with your key in `~/.config/lasso/`. Not in git. |
-| `lasso-play-declaration.mp4` | Video for the Accessibility API declaration. Not in git. |
+| `Lasso-1.1.0.aab` | The App Bundle to upload (version 1.1.0, code 2), signed with your key in `~/.config/lasso/`. Not in git; see [Rebuilding the bundle](#rebuilding-the-bundle). |
+| `lasso-play-declaration.mp4` | Video for the Accessibility API declaration. Not in git; a copy is in `~/Videos/`. |
 | `graphics/icon-512.png` | App icon, 512×512 |
 | `graphics/feature-graphic.png` | Feature graphic, 1024×500 |
 | `graphics/screenshot-1..3.png` | Phone screenshots, 1080×1920 |
+| `graphics/src/` | Script and raw screenshots the graphics are rendered from; see [Updating the graphics](#updating-the-graphics). |
 | `listing.md` | App name, descriptions, category, contact details |
-| `../PRIVACY.md` | Privacy policy (needs to be pushed to GitHub before you submit) |
-| `graphics/src/` | Script and raw screenshots that the graphics are rendered from |
+| `../PRIVACY.md` | Privacy policy, linked from the listing |
 
-## Updating the graphics
-
-1. Take new raw screenshots on a phone or the emulator (Pixel 9 Pro shape, touch indicators off) and save them as `graphics/src/raw/1.png`, `2.png`, `3.png`:
-
-   ```sh
-   adb exec-out screencap -p > play/graphics/src/raw/1.png
-   ```
-
-2. Edit the captions in `SCREENSHOTS` in `graphics/src/render.py` if needed. To add a screenshot, add a raw file and a line there.
-3. Run `python3 play/graphics/src/render.py`. It needs Google Chrome, and rewrites every PNG in `graphics/`. The icon comes from `docs/icon.svg`.
-
-To rebuild the bundle:
-
-```sh
-set -a; . ~/.config/lasso/lasso-release.properties; set +a
-LASSO_KEYSTORE=~/.config/lasso/lasso-release.jks ./gradlew bundleRelease
-# → app/build/outputs/bundle/release/app-release.aab
-```
-
-## 1. Developer account (you)
+## 1. Developer account
 
 - Sign up at play.google.com/console: a one-time $25 fee plus identity verification. This can take a few days.
 - **Personal accounts created after November 2023 must run a closed test first:** at least 12 testers opted in for 14 days in a row before you can apply for production. Check the current numbers in Play Console when you sign up. Organization accounts skip this but need a D-U-N-S number.
 
-## 2. Create the app (you)
+## 2. Create the app
 
 Play Console → Create app:
 
@@ -101,6 +82,27 @@ Submit this form again whenever the way the service is used changes.
 
 1. Testing → Closed testing → create a track, add your testers' emails (or a Google Group), upload `Lasso-1.1.0.aab`, and roll out.
 2. After 14 days with 12+ testers, apply for production access in the Dashboard.
-3. Production → Create release → upload the same or a newer bundle. Each upload needs a higher `versionCode` in `app/build.gradle.kts`.
+3. Once approved, promote the closed-testing release to production, or create a production release with a newer bundle.
 
 Review usually takes a few days. Apps using the accessibility service often get questions or a rejection on the first try. Reply with the declaration text above, and point out that the service has no window content access.
+
+## Rebuilding the bundle
+
+Every upload needs a higher `versionCode` than the last one, so bump `versionCode` and `versionName` in `app/build.gradle.kts` first. Then:
+
+```sh
+set -a; . ~/.config/lasso/lasso-release.properties; set +a
+LASSO_KEYSTORE=~/.config/lasso/lasso-release.jks ./gradlew bundleRelease
+cp app/build/outputs/bundle/release/app-release.aab play/Lasso-<version>.aab
+```
+
+## Updating the graphics
+
+1. Take new raw screenshots on a phone or the emulator (Pixel 9 Pro shape, touch indicators off) and save them as `graphics/src/raw/1.png`, `2.png`, `3.png`:
+
+   ```sh
+   adb exec-out screencap -p > play/graphics/src/raw/1.png
+   ```
+
+2. Edit the captions in `SCREENSHOTS` in `graphics/src/render.py` if needed. To add a screenshot, add a raw file and a line there.
+3. Run `python3 play/graphics/src/render.py`. It needs Google Chrome, and rewrites every PNG in `graphics/`. The icon comes from `docs/icon.svg`.
