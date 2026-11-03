@@ -33,7 +33,7 @@ import kotlin.math.min
 @SuppressLint("ViewConstructor")
 class SelectionOverlay(
     context: Context,
-    private var screen: ScreenText,
+    private val screen: ScreenText,
     /** Screenshot taken when Lasso opened, shown instead of the live app; null if none. */
     private val frozen: Bitmap?,
     /** Where the screenshot shows apps. Elsewhere (system bars, panels) stays live. */
@@ -63,7 +63,7 @@ class SelectionOverlay(
     private val holeRect = RectF()
     private val frozenClip: Path = frozenArea.boundaryPath
 
-    /** Where this view sits on screen; node coordinates are screen-based. */
+    /** Where this view sits on screen; text coordinates are screen-based. */
     private val origin = IntArray(2)
 
     // Selection: word indices; -1 when nothing is selected.
@@ -81,9 +81,6 @@ class SelectionOverlay(
     private var moved = false
     private var lastTapAt = 0L
     private var lastTapBlock: TextBlock? = null
-
-    /** Card for picking words inside one block; null when closed. */
-    private var picker: WordPicker? = null
 
     private val toolbar = LinearLayout(context).apply {
         orientation = LinearLayout.HORIZONTAL
@@ -118,30 +115,11 @@ class SelectionOverlay(
         alpha = 0f
     }
 
-    /**
-     * Swaps in a newer reading of the screen (apps like Chrome fill in their text a moment
-     * after the first read). Ignored once the user has started selecting.
-     */
-    fun update(newScreen: ScreenText): Boolean {
-        if (hasSelection || drag != Drag.NONE || picker != null) return false
-        screen = newScreen
-        emptyMessage.visibility = if (screen.words.isEmpty()) VISIBLE else GONE
-        invalidate()
-        return true
-    }
-
-    val wordCount get() = screen.words.size
-
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         requestFocus()
         animate().alpha(1f).setDuration(120).start()
         performHapticFeedback(HapticFeedbackConstants.CONFIRM)
-    }
-
-    override fun onDetachedFromWindow() {
-        closePicker()
-        super.onDetachedFromWindow()
     }
 
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
@@ -206,14 +184,13 @@ class SelectionOverlay(
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        // Work in screen coordinates, like the node boxes.
+        // Work in screen coordinates, like the text boxes.
         val x = event.rawX
         val y = event.rawY
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 downX = x; downY = y; moved = false
                 drag = when {
-                    picker != null -> Drag.OUTSIDE
                     hasSelection && hitsHandle(startHandle(), x, y, left = true) -> Drag.START_HANDLE
                     hasSelection && hitsHandle(endHandle(), x, y, left = false) -> Drag.END_HANDLE
                     else -> screen.wordAt(x, y, touchSlop / 2)?.let { word ->
@@ -239,14 +216,13 @@ class SelectionOverlay(
                 when (drag) {
                     Drag.OUTSIDE -> if (!moved) {
                         when {
-                            picker != null -> closePicker()
                             hasSelection -> clearSelection()
                             else -> onDismiss()
                         }
                     }
                     Drag.WORDS -> {
                         if (!moved) handleTap(x, y)
-                        if (picker == null) showToolbar()
+                        showToolbar()
                     }
                     Drag.START_HANDLE, Drag.END_HANDLE -> showToolbar()
                     Drag.NONE -> Unit
@@ -264,11 +240,6 @@ class SelectionOverlay(
     /** A second tap on the same block selects all of it. */
     private fun handleTap(x: Float, y: Float) {
         val word = screen.wordAt(x, y, touchSlop / 2) ?: return
-        // No word positions for this block: pick words from a card instead.
-        if (!word.block.hasCharBoxes && word.block.text.trim().any(Char::isWhitespace)) {
-            openPicker(word.block)
-            return
-        }
         val now = SystemClock.uptimeMillis()
         if (now - lastTapAt < 350 && lastTapBlock === word.block) {
             val words = screen.words.filter { it.block === word.block }
@@ -313,28 +284,6 @@ class SelectionOverlay(
     }
 
     private fun selectedText() = if (hasSelection) screen.textOf(first, last) else ""
-
-    // ---- Word picker ----
-
-    private fun openPicker(block: TextBlock) {
-        clearSelection()
-        val card = WordPicker(
-            context, block.text.trim(), palette,
-            // Opposite half of the screen from the block, so it stays visible.
-            atBottom = block.bounds.centerY() - origin[1] < height / 2,
-            maxTextHeight = (height * 0.4f).toInt(),
-            onCopy = onCopy, onShare = onShare, onTranslate = onTranslate, onLaunch = onLaunch,
-            onClosed = { picker = null },
-        )
-        picker = card
-        card.show()
-        performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-    }
-
-    private fun closePicker() {
-        picker?.dismiss()
-        picker = null
-    }
 
     // ---- Toolbar ----
 

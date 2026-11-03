@@ -1,14 +1,14 @@
 <resources>
     <string name="app_name">Lasso</string>
     <string name="service_label">Lasso text selection</string>
-    <string name="service_description">Double-tap the back of your phone (Quick Tap) or tap the accessibility button in any app to make the text on screen selectable.\n\nLasso reads the text shown on screen, takes a screenshot to recognize text in it, and watches for the Back key while open, only to make that text selectable when you ask for it. Everything is processed on the phone. Nothing is saved or sent anywhere: the app has no internet access.</string>
+    <string name="service_description">Double-tap the back of your phone (Quick Tap) or tap the accessibility button in any app to make the text on screen selectable.\n\nWhen you open Lasso, it takes a screenshot and recognizes the text in it, so you can select that text. It also watches for the Back key while open, to close. Everything is processed on the phone. Nothing is saved or sent anywhere: the app has no internet access.</string>
 
     <string name="action_copy">Copy</string>
     <string name="action_share">Share</string>
     <string name="action_select_all">All</string>
     <string name="action_translate">Translate</string>
     <string name="no_translator">No translation app installed</string>
-    <string name="picker_hint">Long-press a word to select it</string>
-    <string name="no_text_found">No text found on this screen</string>
+    <string name="no_screenshot">This app doesn\'t allow screenshots, so Lasso can\'t read its text</string>
+    <string name="no_text_found">No text found on this screen. Some apps block screenshots.</string>
     <string name="copied">Copied</string>
 </resources>

@@ -142,7 +142,6 @@ private fun SettingsScreen(serviceEnabled: Boolean, modifier: Modifier = Modifie
                 style = MaterialTheme.typography.bodySmall,
             )
         }
-        SettingSwitch(Prefs.OCR, "Recognize text in the screenshot", "Makes words selectable in web views, images and games. Text is recognized on the phone.")
         SettingSwitch(Prefs.PAUSE_MEDIA, "Pause media while selecting", "Pauses videos and music, and resumes them when you're done.")
 
         Text("Try it", style = MaterialTheme.typography.titleMedium)
@@ -165,8 +164,7 @@ private fun DisclosureCard(onAgree: () -> Unit) {
             Text("Turn on Lasso", style = MaterialTheme.typography.titleMedium)
             Text(
                 "Lasso uses Android's accessibility service to:\n" +
-                    "• read the text shown on screen, only when you trigger it, to make it selectable\n" +
-                    "• take a screenshot at that moment and recognize the text in it, on the phone\n" +
+                    "• take a screenshot when you open Lasso, and recognize the text in it on the phone\n" +
                     "• watch for the Back key while Lasso is open, to close it\n\n" +
                     "Nothing is saved or sent anywhere. Lasso has no internet access."
             )

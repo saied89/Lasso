@@ -6,24 +6,20 @@ import kotlin.math.max
 import kotlin.math.min
 
 /**
- * One piece of on-screen text, read from a single accessibility node.
- * All coordinates are in screen pixels.
+ * One line of recognized text. All coordinates are in screen pixels.
  */
 class TextBlock(
     val text: String,
-    /** Node bounds, clipped to its window. */
     val bounds: Rect,
-    /** Box per character of [text], or null when the app doesn't report them. Entries can be null (off screen). */
-    private val charBoxes: Array<RectF?>?,
+    /** Box per character of [text]; null for characters without one (spaces). */
+    private val charBoxes: Array<RectF?>,
 ) {
-    val hasCharBoxes get() = charBoxes != null
-
     /** Boxes around each visual line of the whole text. Used to cut the bright "holes". */
     val lineBoxes: List<RectF> = lineBoxes(0, text.length)
 
     /** Merges the boxes of characters [from, to) into one box per visual line. */
     fun lineBoxes(from: Int, to: Int): List<RectF> {
-        val boxes = charBoxes ?: return listOf(RectF(bounds))
+        val boxes = charBoxes
         val clip = RectF(bounds)
         val lines = mutableListOf<RectF>()
         var current: RectF? = null
@@ -43,7 +39,6 @@ class TextBlock(
 
     /** Box around characters [from, to), or null if none of them are visible. */
     fun boxOf(from: Int, to: Int): RectF? {
-        if (charBoxes == null) return RectF(bounds)
         val lines = lineBoxes(from, to)
         if (lines.isEmpty()) return null
         return RectF(lines[0]).apply { lines.forEach { union(it) } }
@@ -57,7 +52,7 @@ class TextBlock(
     }
 }
 
-/** A selectable unit: a whitespace-separated word, or a whole block when character boxes are missing. */
+/** A selectable unit: a whitespace-separated word. */
 class Word(
     val index: Int,
     val block: TextBlock,
@@ -70,10 +65,6 @@ class Word(
 class ScreenText(val blocks: List<TextBlock>) {
     val words: List<Word> = buildList {
         for (block in blocks) {
-            if (!block.hasCharBoxes) {
-                add(Word(size, block, 0, block.text.length, RectF(block.bounds)))
-                continue
-            }
             for (match in WORD.findAll(block.text)) {
                 val box = block.boxOf(match.range.first, match.range.last + 1) ?: continue
                 add(Word(size, block, match.range.first, match.range.last + 1, box))

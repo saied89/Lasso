@@ -10,6 +10,7 @@ import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.PixelFormat
+import android.graphics.Rect
 import android.graphics.Region
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
@@ -22,9 +23,10 @@ import android.os.SystemClock
 import android.util.Log
 import android.view.Display
 import android.view.KeyEvent
+import android.view.WindowInsets
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
-import android.view.accessibility.AccessibilityWindowInfo
+import android.view.inputmethod.InputMethodManager
 import android.widget.Toast
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executors
@@ -41,8 +43,6 @@ class LassoService : AccessibilityService() {
         private const val RETURN_WAIT_MS = 3000L
         /** After this long in another app, the frozen screen is likely stale; close instead. */
         private const val HIDDEN_MAX_MS = 5 * 60_000L
-        /** When to read the screen again after showing the overlay, in ms. */
-        private val REFRESH_DELAYS = longArrayOf(300, 800, 1500)
 
         @Volatile
         var instance: LassoService? = null
@@ -61,11 +61,12 @@ class LassoService : AccessibilityService() {
     /** Bumped on every dismiss, so late screen reads from an earlier overlay are ignored. */
     private var session = 0
     private var overlay: SelectionOverlay? = null
-    private var overlayPackages = emptySet<String>()
+    /** The app under the overlay, or null if we haven't seen which one it is. */
+    private var overlayPackage: String? = null
+    /** The app on screen, from window events. Null until the first one arrives. */
+    private var foreground: String? = null
     private var focusRequest: AudioFocusRequest? = null
 
-    /** Text recognized in this session's screenshot, reused when re-reading the accessibility text. */
-    private var ocrBlocks = emptyList<TextBlock>()
     /** Created on first use; only touched on the worker thread. */
     private var ocr: Ocr? = null
 
@@ -74,8 +75,7 @@ class LassoService : AccessibilityService() {
 
     private var lastScrollAt = 0L
 
-    // While HIDDEN: the apps that were on screen, and whether the other app has appeared yet.
-    private var homePackages = emptySet<String>()
+    // While HIDDEN: whether the other app (e.g. Translate) has appeared yet.
     private var sawOtherApp = false
     private var hiddenAt = 0L
     private val checkReturn = Runnable { checkReturn() }
@@ -122,15 +122,27 @@ class LassoService : AccessibilityService() {
         when (event.eventType) {
             AccessibilityEvent.TYPE_VIEW_SCROLLED -> lastScrollAt = SystemClock.uptimeMillis()
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
-                // Another app came to the front (e.g. an incoming call): our boxes no longer match.
                 val pkg = event.packageName?.toString() ?: return
-                if (state == State.SHOWING && pkg != packageName && pkg != "com.android.systemui" && pkg !in overlayPackages) {
-                    dismiss()
-                }
+                if (!isAppWindow(pkg, event.className?.toString())) return
+                foreground = pkg
+                // Another app came to the front (e.g. an incoming call): our boxes no longer match.
+                val under = overlayPackage
+                if (state == State.SHOWING && under != null && pkg != under) dismiss()
                 if (state == State.HIDDEN) scheduleReturnCheck()
             }
-            AccessibilityEvent.TYPE_WINDOWS_CHANGED -> if (state == State.HIDDEN) scheduleReturnCheck()
         }
+    }
+
+    /**
+     * Whether a window event means an app came to the front. The status bar, the keyboard and
+     * Lasso's own windows also send these, but the app below stays where it was.
+     */
+    private fun isAppWindow(pkg: String, className: String?): Boolean {
+        if (pkg == "com.android.systemui") return false
+        // Ours: only the settings screen counts. The overlay and the Quick Tap entry don't.
+        if (pkg == packageName) return className == MainActivity::class.java.name
+        val keyboards = getSystemService(InputMethodManager::class.java).enabledInputMethodList
+        return keyboards.none { it.packageName == pkg }
     }
 
     // ---- Keys ----
@@ -173,13 +185,14 @@ class LassoService : AccessibilityService() {
         }
     }
 
-    /** Takes a screenshot, reads the accessibility text and recognizes the text in the screenshot. */
+    /** Takes a screenshot and recognizes the text in it. */
     private fun capture() {
         val started = SystemClock.uptimeMillis()
         val readSession = session
-        val shot = if (Prefs.ocr(this)) requestScreenshot() else CompletableFuture.completedFuture(null)
+        val shot = requestScreenshot()
+        val area = appArea()
+        val under = foreground
         worker.execute {
-            val nodes = extract()
             val frozen = try {
                 shot.get(2, TimeUnit.SECONDS)
             } catch (e: Exception) {
@@ -187,16 +200,32 @@ class LassoService : AccessibilityService() {
                 null
             }
             val recognized = frozen?.let { (ocr ?: Ocr().also { ocr = it }).read(it) }.orEmpty()
-            val screen = ScreenText(TextExtractor.merge(nodes.blocks, recognized, nodes.appArea))
-            Log.d(TAG, "Read ${nodes.blocks.size} nodes + ${recognized.size} recognized lines -> " +
-                "${screen.words.size} words in ${SystemClock.uptimeMillis() - started} ms")
+                // Skip the clock, notification icons and the navigation bar.
+                .filter { area.contains(it.bounds.centerX(), it.bounds.centerY()) }
+                .sortedWith(compareBy({ it.bounds.top }, { it.bounds.left }))
+            val screen = ScreenText(recognized)
+            Log.d(TAG, "Recognized ${recognized.size} lines -> ${screen.words.size} words " +
+                "in ${SystemClock.uptimeMillis() - started} ms")
             main.post {
                 if (session != readSession) return@post
-                ocrBlocks = recognized
-                show(screen, nodes.packages, frozen, nodes.appArea)
-                REFRESH_DELAYS.forEach { delay -> main.postDelayed(::refresh, delay) }
+                if (frozen == null) {
+                    // E.g. an app that blocks screenshots, like banking apps or private tabs.
+                    Toast.makeText(this, R.string.no_screenshot, Toast.LENGTH_SHORT).show()
+                    state = State.IDLE
+                    return@post
+                }
+                show(screen, under, frozen, area)
             }
         }
+    }
+
+    /** The screen without the status and navigation bars, when they're showing. */
+    private fun appArea(): Region {
+        val metrics = windowManager.currentWindowMetrics
+        val bars = metrics.windowInsets.getInsets(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars() or WindowInsets.Type.ime())
+        val bounds = Rect(metrics.bounds)
+        bounds.set(bounds.left + bars.left, bounds.top + bars.top, bounds.right - bars.right, bounds.bottom - bars.bottom)
+        return Region(bounds)
     }
 
     private fun requestScreenshot(): CompletableFuture<Bitmap?> {
@@ -212,7 +241,7 @@ class LassoService : AccessibilityService() {
             }
 
             override fun onFailure(errorCode: Int) {
-                // E.g. an app that blocks screenshots. The accessibility text still works.
+                // E.g. an app that blocks screenshots.
                 Log.w(TAG, "Screenshot failed: $errorCode")
                 result.complete(null)
             }
@@ -220,33 +249,7 @@ class LassoService : AccessibilityService() {
         return result
     }
 
-    private fun extract() = try {
-        TextExtractor.extract(this)
-    } catch (e: Exception) {
-        Log.e(TAG, "Reading screen text failed", e)
-        TextExtractor.Result(emptyList(), emptySet(), Region())
-    }
-
-    /** Some apps (Chrome) only build their full text tree after the first request; pick up the rest. */
-    private fun refresh() {
-        if (state != State.SHOWING) return
-        val readSession = session
-        val recognized = ocrBlocks
-        worker.execute {
-            val nodes = extract()
-            val screen = ScreenText(TextExtractor.merge(nodes.blocks, recognized, nodes.appArea))
-            main.post {
-                val view = overlay ?: return@post
-                if (session == readSession && state == State.SHOWING &&
-                    screen.words.size > view.wordCount && view.update(screen)
-                ) {
-                    overlayPackages = overlayPackages + nodes.packages
-                }
-            }
-        }
-    }
-
-    private fun show(screen: ScreenText, packages: Set<String>, frozen: Bitmap?, appArea: Region) {
+    private fun show(screen: ScreenText, under: String?, frozen: Bitmap, appArea: Region) {
         if (state != State.PREPARING) return
         val view = SelectionOverlay(
             context = this,
@@ -267,7 +270,7 @@ class LassoService : AccessibilityService() {
             return
         }
         overlay = view
-        overlayPackages = packages
+        overlayPackage = under
         state = State.SHOWING
         if (Prefs.pauseMedia(this)) pauseMedia()
     }
@@ -299,8 +302,7 @@ class LassoService : AccessibilityService() {
             }
         }
         overlay = null
-        overlayPackages = emptySet()
-        ocrBlocks = emptyList()
+        overlayPackage = null
         resumeMedia()
         state = State.IDLE
     }
@@ -343,8 +345,8 @@ class LassoService : AccessibilityService() {
      */
     private fun launchOnTop(intent: Intent) {
         val view = overlay
-        if (state != State.SHOWING || view == null) return launch(intent)
-        homePackages = appPackages().toSet()
+        // Without knowing the app below, we can't tell when the user is back in it.
+        if (state != State.SHOWING || view == null || overlayPackage == null) return launch(intent)
         try {
             windowManager.removeView(view)
             startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
@@ -371,10 +373,10 @@ class LassoService : AccessibilityService() {
      */
     private fun checkReturn() {
         if (state != State.HIDDEN) return
-        val top = appPackages().firstOrNull() ?: return
+        val top = foreground ?: return
         val elapsed = SystemClock.uptimeMillis() - hiddenAt
         when {
-            top in homePackages -> {
+            top == overlayPackage -> {
                 // Right after hiding, the app is still on top until the other one opens.
                 if (sawOtherApp || elapsed >= RETURN_WAIT_MS) restore()
             }
@@ -398,13 +400,6 @@ class LassoService : AccessibilityService() {
             dismiss()
         }
     }
-
-    /** Packages of the app windows on screen, topmost first. */
-    private fun appPackages(): List<String> = windows
-        .filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
-        .sortedByDescending { it.layer }
-        .mapNotNull { it.root?.packageName?.toString() }
-        .filter { it != "com.android.systemui" && it != packageName }
 
     /** Closes Lasso and starts [intent] on top of the current app. */
     private fun launch(intent: Intent) {

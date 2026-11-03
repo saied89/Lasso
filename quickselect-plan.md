@@ -8,7 +8,8 @@ The earlier plan (open Recents and auto-tap Pixel Launcher's "Select") was dropp
 
 - Stock, locked Pixel. No root, no ADB/Shizuku, no Developer options (banking apps must keep working).
 - Everything goes through one **AccessibilityService** (`LassoService`). No `SYSTEM_ALERT_WINDOW`: the service draws with a `TYPE_ACCESSIBILITY_OVERLAY` window.
-- Text comes from two sources, merged: the accessibility node tree (exact text) and on-device OCR of a screenshot (ML Kit, bundled, Latin script). No INTERNET permission: ML Kit's usage-stats permissions are removed in the manifest. Nothing is stored.
+- Text comes only from on-device OCR of a screenshot (ML Kit, bundled, Latin script). The service can't read other apps' content (`canRetrieveWindowContent` false). No INTERNET permission: ML Kit's usage-stats permissions are removed in the manifest. Nothing is stored.
+- Reading the accessibility node tree was removed in Nov 2026 to narrow what the service can do for the Play review. It gave exact text and non-Latin scripts; see git history before that change.
 - minSdk 30, targetSdk 37.
 
 ## Flow
@@ -19,46 +20,36 @@ The earlier plan (open Recents and auto-tap Pixel Launcher's "Select") was dropp
    - `TriggerActivity` is also the launcher icon. If the referrer is the home screen app (or the service is off), it opens `MainActivity` instead. Needs a `<queries>` entry for the HOME intent to see the home app.
    - The "Select text on this screen" button in the app calls `trigger()` too.
 2. **Wait for scrolling to stop.** If a `TYPE_VIEW_SCROLLED` event arrived in the last 120 ms, wait (max 600 ms), so the boxes match what's drawn.
-3. **Screenshot** with `takeScreenshot()` (`canTakeScreenshot`), before the overlay appears. Fails on apps that block screenshots; then only accessibility text is used. Can be turned off in settings.
-4. **Read the screen** on a worker thread (`TextExtractor`):
-   - All `TYPE_APPLICATION` windows, topmost first. Text covered by a window above is dropped (dialogs over apps). SystemUI is skipped.
-   - Depth-first walk of visible nodes, max 4000 per window.
-   - Use `text`. Fall back to `contentDescription` only for leaf, non-clickable labels. Skip passwords, WebView roots (their text is the page title) and images.
-   - Drop an outer node when an inner node shows the same text.
-   - Ask for per-character boxes with `refreshWithExtraData(EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY)`, max 5000 chars per node. If every box is identical (WebView 156+ reports the node's whole box for each character), the boxes are ignored. Without boxes, the whole node is one selectable unit. Icon-font names like `arrow_back` are dropped.
-5. **Recognize text** in the screenshot (`Ocr`): one block per line, with per-character boxes from ML Kit symbols (or evenly split words). Lines below 0.65 confidence are dropped (icons read as text).
-6. **Merge** (`TextExtractor.merge`): accessibility blocks with real character boxes win; OCR lines on top of them are dropped. Accessibility blocks without boxes are replaced by the OCR lines inside them. Remaining OCR lines (images, games) are added. OCR outside the app area (status bar, keyboard, volume panel) is ignored.
-7. **Show the overlay** (`SelectionOverlay`):
+3. **Screenshot** with `takeScreenshot()` (`canTakeScreenshot`), before the overlay appears. If it fails, a toast says the app blocks screenshots. Apps with `FLAG_SECURE` usually come back black instead, which shows "No text found".
+4. **Recognize text** on a worker thread (`Ocr`): one block per line, with per-character boxes from ML Kit symbols (or evenly split words). Lines below 0.65 confidence are dropped (icons read as text). Lines outside the app area are dropped: the screen minus the status bar, navigation bar and keyboard insets from `currentWindowMetrics`. Lines are sorted top to bottom, then left to right.
+5. **Show the overlay** (`SelectionOverlay`):
    - The screenshot is drawn over the app area, so the screen is frozen; system panels stay live.
    - Dark scrim with rounded bright holes around each line of text.
    - Optionally pauses media by taking transient audio focus.
-8. **Refresh.** Chrome builds its tree lazily, so the first read can be partial. Re-read at 300, 800 and 1500 ms and merge with the same OCR result; swap it in if it has more words and the user hasn't started selecting.
 
 ## Selection UI
 
 - Drag across words to select. Teardrop handles at both ends adjust the range.
 - Double-tap a block to select all of it.
 - Toolbar: **Copy**, **Share**, **Translate** (Google Translate's tap-to-translate popup via `ACTION_PROCESS_TEXT`, else a chooser of text apps), **All**.
-- Fallback when neither source gives word positions: tapping a multi-word block opens a card (`WordPicker`, a `TYPE_ACCESSIBILITY_OVERLAY` dialog) with Android's own text selection and menu, including other apps' text actions. Menu actions that start activities are routed through the service (needs `FLAG_ACTIVITY_NEW_TASK`).
 - Toolbar above the selection (below if there's no room): **Copy**, **Share**, **All**.
 - Copied text: blocks on the same visual line are joined inline (web pages split sentences into many nodes). A space is added if the source has one or there's a visible gap. Different lines are joined with a newline.
-- **Translate** keeps Lasso open: the overlay is removed (kept in memory) so Translate's popup is visible, and re-added with the same selection when the original app is back on top (`TYPE_WINDOWS_CHANGED`). Going to the home screen while it's hidden, or 5 minutes passing, closes Lasso.
+- **Which app is in front** comes from `TYPE_WINDOW_STATE_CHANGED` events' package name (no window list without window content access). SystemUI, keyboards and Lasso's own windows other than `MainActivity` are ignored.
+- **Translate** keeps Lasso open: the overlay is removed (kept in memory) so Translate's popup is visible, and re-added with the same selection when the original app is back in front. Going to the home screen while it's hidden, or 5 minutes passing, closes Lasso.
 - Closing: Back (swallowed in `onKeyEvent`, so the app below doesn't go back too), the accessibility button, tapping the dim area with nothing selected, Copy, Share, rotation, or another app coming to the front.
 
 ## Files
 
 | File | Role |
 |---|---|
-| `LassoService.kt` | Back key, accessibility button, trigger, overlay window, refresh, copy/share, audio focus. |
-| `TextExtractor.kt` | Reads windows and nodes into `TextBlock`s; app area; merges with OCR. |
+| `LassoService.kt` | Back key, accessibility button, trigger, screenshot, app area, overlay window, copy/share, audio focus. |
 | `Ocr.kt` | ML Kit text recognition of the screenshot into `TextBlock`s. |
 | `TextModel.kt` | `TextBlock`, `Word`, `ScreenText`: line boxes, hit testing, building the copied text. |
 | `SelectionOverlay.kt` | Scrim, highlights, handles, toolbar, touch handling. |
-| `WordPicker.kt` | Fallback dialog with native text selection for blocks without positions. |
 | `TriggerActivity.kt` | Launcher entry and Quick Tap target: starts selection, or opens settings from the home screen. |
-| `Prefs.kt` | Settings: text recognition, pause media (both on by default). |
+| `Prefs.kt` | Settings: pause media (on by default). |
 | `MainActivity.kt` | Disclosure, enable button, settings switches, sample text to try. |
-| `res/xml/lasso_service.xml` | Service config: Back key filtering, accessibility button, interactive windows, window content, screenshots. |
+| `res/xml/lasso_service.xml` | Service config: Back key filtering, accessibility button, screenshots. No window content. |
 
 ## Install / user setup
 
@@ -73,10 +64,7 @@ The earlier plan (open Recents and auto-tap Pixel Launcher's "Select") was dropp
 ## Known limits
 
 - OCR reads Latin script only (no Arabic/Persian), can misread small or stylized text, and adds ~0.5 s. The debug APK is 76 MB because ML Kit ships native code for 4 ABIs; an App Bundle ships one.
-
-- Apps that mark views `accessibilityDataSensitive`, or draw text themselves (games, some Flutter/canvas apps), show little or no text. `FLAG_SECURE` alone doesn't block it.
-- WebView 156+ (e.g. Cordova apps like theorie24) reports no character boxes; OCR provides word positions there. Tried and failed to get real boxes from WebView 156: all event types, spoken feedback + extra flags, accessibility focus before the request.
-- Hidden web labels can still light up under icons in some pages.
+- Apps that block screenshots (`FLAG_SECURE`: banking apps, private tabs) show no text.
 
 ## Test checklist
 

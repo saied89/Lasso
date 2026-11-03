@@ -6,12 +6,10 @@ import androidx.core.content.edit
 /** User settings, shared by the settings screen and the service. */
 object Prefs {
     const val PAUSE_MEDIA = "pause_media"
-    const val OCR = "ocr"
 
     private fun prefs(context: Context) = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
 
     fun pauseMedia(context: Context) = get(context, PAUSE_MEDIA)
-    fun ocr(context: Context) = get(context, OCR)
 
     /** Every setting is on by default. */
     fun get(context: Context, key: String) = prefs(context).getBoolean(key, true)

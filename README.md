@@ -4,7 +4,7 @@
 
 Select any text on your Android screen, in any app. Then copy, share or translate it.
 
-Trigger Lasso and the current app dims. Every piece of visible text becomes selectable, including text in apps that don't normally let you select it: buttons, lists, web views, images and games. Drag across words to select them, then pick **Copy**, **Share** or **Translate**.
+Trigger Lasso and the current app dims. Every piece of visible text becomes selectable, including text in apps that don't normally let you select it: buttons, lists, web pages, images and games. Drag across words to select them, then pick **Copy**, **Share** or **Translate**.
 
 ## Opening Lasso
 
@@ -17,16 +17,15 @@ Press Back to close Lasso.
 
 ## How it works
 
-Lasso is an accessibility service. When you open it, it reads the text from two sources and combines them:
+When you open Lasso, it takes a screenshot and recognizes the text in it with ML Kit's on-device recognizer. Lasso doesn't read other apps' content: it only sees what's in the screenshot.
 
-1. **The app's accessibility text:** exact text with the position of every character, where the app provides it.
-2. **Text recognition on a screenshot:** for web views, images and games that don't report where their text is. This uses ML Kit's on-device recognizer, which reads Latin script only.
+Lasso is an accessibility service because that's what lets it take the screenshot, draw over every app, catch the Back key while it's open and show the accessibility button.
 
 Translate opens Google Translate's popup on top of Lasso. When you close the popup, your selection is still there.
 
 ## Privacy
 
-- Lasso reads the screen only when you open it.
+- Lasso takes a screenshot only when you open it, and doesn't keep it after you close Lasso.
 - Text recognition runs on the phone.
 - Nothing is saved, and the app has no internet permission.
 
@@ -47,9 +46,8 @@ If a banking app complains about an active accessibility service, turn Lasso off
 
 ## Known limits
 
-- Text recognition reads Latin script only, and can misread small or stylized text.
-- Apps that block screenshots, or hide their text from accessibility services, show little or no text.
-- Recent WebView versions don't report character positions, so web text relies on text recognition.
+- Text recognition reads Latin script only, so Arabic, Persian, Chinese and other scripts can't be selected. It can also misread small or stylized text.
+- Apps that block screenshots, like banking apps and private browser tabs, show no text.
 
 See [quickselect-plan.md](quickselect-plan.md) for the design notes.
 
