@@ -6,7 +6,7 @@ Everything needed to create the Play listing, in the order Play Console asks for
 
 | File | Use |
 |---|---|
-| `Lasso-1.1.0.aab` | The App Bundle to upload (version 1.1.0, code 2), signed with your key in `~/.config/lasso/`. Not in git; see [Rebuilding the bundle](#rebuilding-the-bundle). |
+| `Lasso-1.1.1.aab` | The App Bundle to upload (version 1.1.1, code 3), signed with your key in `~/.config/lasso/`. Not in git; see [Rebuilding the bundle](#rebuilding-the-bundle). |
 | `lasso-play-declaration.mp4` | Video for the Accessibility API declaration. Not in git; a copy is in `~/Videos/`. |
 | `graphics/icon-512.png` | App icon, 512×512 |
 | `graphics/feature-graphic.png` | Feature graphic, 1024×500 |
@@ -80,7 +80,7 @@ Submit this form again whenever the way the service is used changes.
 
 ## 7. Release
 
-1. Testing → Closed testing → create a track, add your testers' emails (or a Google Group), upload `Lasso-1.1.0.aab`, and roll out.
+1. Testing → Closed testing → create a track, add your testers' emails (or a Google Group), upload `Lasso-1.1.1.aab`, and roll out.
 2. After 14 days with 12+ testers, apply for production access in the Dashboard.
 3. Once approved, promote the closed-testing release to production, or create a production release with a newer bundle.
 

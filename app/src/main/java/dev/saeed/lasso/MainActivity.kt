@@ -5,6 +5,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInstaller
+import androidx.core.net.toUri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -30,6 +31,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -173,8 +175,21 @@ private fun SettingsScreen(serviceEnabled: Boolean, restricted: Boolean, modifie
         OutlinedButton(enabled = serviceEnabled, onClick = { LassoService.instance?.trigger() }) {
             Text("Select text on this screen")
         }
+
+        TextButton(onClick = { openPrivacyPolicy(context) }) { Text("Privacy policy") }
     }
 }
+
+/** Opens the privacy policy in the browser. Google Play requires a link to it inside the app. */
+private fun openPrivacyPolicy(context: Context) {
+    try {
+        context.startActivity(Intent(Intent.ACTION_VIEW, PRIVACY_POLICY_URL.toUri()))
+    } catch (_: ActivityNotFoundException) {
+        // No browser; nothing to open it with.
+    }
+}
+
+private const val PRIVACY_POLICY_URL = "https://github.com/saied89/Lasso/blob/main/PRIVACY.md"
 
 /** Google Play requires telling users what the accessibility service does before they turn it on. */
 @Composable
