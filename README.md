@@ -29,6 +29,8 @@ Translate opens Google Translate's popup on top of Lasso. When you close the pop
 - Text recognition runs on the phone.
 - Nothing is saved, and the app has no internet permission.
 
+See the full [privacy policy](PRIVACY.md).
+
 ## Install
 
 Build it with Android Studio, or from the command line:
