@@ -1,13 +1,16 @@
 package dev.saeed.lasso
 
+import android.content.ActivityNotFoundException
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -64,9 +67,29 @@ private fun isServiceEnabled(context: Context): Boolean {
     return enabled.split(':').any { ComponentName.unflattenFromString(it) == ours }
 }
 
+/** How this phone can open an app with a double tap on its back, if it can. */
+private enum class BackTap { QUICK_TAP, SAMSUNG, NONE }
+
+private fun backTap(context: Context) = when {
+    // Set by Pixels that have Quick Tap; missing on older Pixels and other phones.
+    context.packageManager.hasSystemFeature("com.google.android.feature.QUICK_TAP") -> BackTap.QUICK_TAP
+    Build.MANUFACTURER.equals("samsung", ignoreCase = true) -> BackTap.SAMSUNG
+    else -> BackTap.NONE
+}
+
+/** Opens Pixel's Quick Tap settings, or the main Settings screen if that page isn't there. */
+private fun openQuickTapSettings(context: Context) {
+    try {
+        context.startActivity(Intent("com.google.android.settings.gestures.QUICK_TAP_SETTINGS"))
+    } catch (_: ActivityNotFoundException) {
+        context.startActivity(Intent(Settings.ACTION_SETTINGS))
+    }
+}
+
 @Composable
 private fun SettingsScreen(serviceEnabled: Boolean, modifier: Modifier = Modifier) {
     val context = LocalContext.current
+    val backTap = remember { backTap(context) }
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -75,7 +98,10 @@ private fun SettingsScreen(serviceEnabled: Boolean, modifier: Modifier = Modifie
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text("Lasso", style = MaterialTheme.typography.headlineMedium)
-        Text("Double-tap the back of your phone, or tap the accessibility button, in any app. The screen dims, and all text becomes selectable.")
+        Text(
+            if (backTap == BackTap.NONE) "Tap the accessibility button in any app. The screen dims, and all text becomes selectable."
+            else "Double-tap the back of your phone, or tap the accessibility button, in any app. The screen dims, and all text becomes selectable."
+        )
 
         if (serviceEnabled) {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
@@ -86,12 +112,27 @@ private fun SettingsScreen(serviceEnabled: Boolean, modifier: Modifier = Modifie
         }
 
         Text("Settings", style = MaterialTheme.typography.titleMedium)
-        Column {
-            Text("Double-tap the back of the phone", style = MaterialTheme.typography.bodyLarge)
-            Text(
-                "Set it up in the Settings app: System → Gestures → Quick Tap → Open app → Lasso.",
-                style = MaterialTheme.typography.bodySmall,
-            )
+        when (backTap) {
+            BackTap.QUICK_TAP -> Column(
+                Modifier
+                    .fillMaxWidth()
+                    .clickable { openQuickTapSettings(context) },
+            ) {
+                Text("Double-tap the back of the phone", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    "Tap here to open Quick Tap, then choose Open app → Lasso.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            BackTap.SAMSUNG -> Column {
+                Text("Double-tap the back of the phone", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    "Install Good Lock from the Galaxy Store and add its RegiStar module. In RegiStar, " +
+                        "open Back-Tap action → Double tap → Open app → Lasso.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            BackTap.NONE -> Unit
         }
         Column {
             Text("Floating button or two-finger swipe", style = MaterialTheme.typography.bodyLarge)
