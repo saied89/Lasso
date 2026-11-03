@@ -45,7 +45,7 @@ jobs:
           java-version: 25
       - uses: gradle/actions/setup-gradle@v6
 
-      - name: Build signed APK
+      - name: Build signed APK and App Bundle
         env:
           LASSO_KEYSTORE_BASE64: ${{ secrets.LASSO_KEYSTORE_BASE64 }}
           LASSO_KEYSTORE_PASSWORD: ${{ secrets.LASSO_KEYSTORE_PASSWORD }}
@@ -57,10 +57,12 @@ jobs:
           fi
           export LASSO_KEYSTORE="$RUNNER_TEMP/lasso-release.jks"
           echo "$LASSO_KEYSTORE_BASE64" | base64 --decode > "$LASSO_KEYSTORE"
-          ./gradlew assembleRelease
+          ./gradlew assembleRelease bundleRelease
           cp app/build/outputs/apk/release/app-release.apk "Lasso-$GITHUB_REF_NAME.apk"
+          # For uploading to Google Play; it can't be installed directly.
+          cp app/build/outputs/bundle/release/app-release.aab "Lasso-$GITHUB_REF_NAME.aab"
 
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" "Lasso-$GITHUB_REF_NAME.apk" --title "Lasso $GITHUB_REF_NAME" --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" "Lasso-$GITHUB_REF_NAME.apk" "Lasso-$GITHUB_REF_NAME.aab" --title "Lasso $GITHUB_REF_NAME" --generate-notes

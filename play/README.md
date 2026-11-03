@@ -88,7 +88,9 @@ Review usually takes a few days. Apps using the accessibility service often get 
 
 ## Rebuilding the bundle
 
-Every upload needs a higher `versionCode` than the last one, so bump `versionCode` and `versionName` in `app/build.gradle.kts` first. Then:
+Every upload needs a higher `versionCode` than the last one, so bump `versionCode` and `versionName` in `app/build.gradle.kts` first.
+
+The easiest way is to push a tag like `v1.1.0`. The release pipeline attaches `Lasso-v1.1.0.aab` to the GitHub release, next to the APK. To build it locally instead:
 
 ```sh
 set -a; . ~/.config/lasso/lasso-release.properties; set +a
