@@ -230,13 +230,17 @@ class LassoService : AccessibilityService() {
 
     private fun requestScreenshot(): CompletableFuture<Bitmap?> {
         val result = CompletableFuture<Bitmap?>()
-        takeScreenshot(Display.DEFAULT_DISPLAY, mainExecutor, object : TakeScreenshotCallback {
+        // Run the callback on the thread that delivers it, not the main thread: copying the
+        // screenshot takes a while. Not on [worker] either, which is busy waiting for this.
+        takeScreenshot(Display.DEFAULT_DISPLAY, Runnable::run, object : TakeScreenshotCallback {
             override fun onSuccess(screenshot: ScreenshotResult) {
+                val started = SystemClock.uptimeMillis()
                 val buffer = screenshot.hardwareBuffer
                 // A software copy, which the text recognizer can read.
                 val bitmap = Bitmap.wrapHardwareBuffer(buffer, screenshot.colorSpace)
                     ?.copy(Bitmap.Config.ARGB_8888, false)
                 buffer.close()
+                Log.d(TAG, "Copied screenshot in ${SystemClock.uptimeMillis() - started} ms")
                 result.complete(bitmap)
             }
 
