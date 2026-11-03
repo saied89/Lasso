@@ -31,7 +31,7 @@ import kotlin.math.min
 class WordPicker(
     context: Context,
     private val text: String,
-    private val dark: Boolean,
+    private val palette: Palette,
     atBottom: Boolean,
     maxTextHeight: Int,
     private val onCopy: (String) -> Unit,
@@ -50,16 +50,15 @@ class WordPicker(
 
     private val dialog = Dialog(
         launcher,
-        if (dark) android.R.style.Theme_DeviceDefault_Dialog_NoActionBar
+        if (palette.dark) android.R.style.Theme_DeviceDefault_Dialog_NoActionBar
         else android.R.style.Theme_DeviceDefault_Light_Dialog_NoActionBar,
     )
     private val ctx = dialog.context
     private fun dp(v: Float) = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v, ctx.resources.displayMetrics)
-    private val textColor = if (dark) 0xFFE8EAED.toInt() else 0xFF202124.toInt()
 
     private val body = TextView(ctx).apply {
         setText(this@WordPicker.text)
-        setTextColor(textColor)
+        setTextColor(palette.onSurface)
         textSize = 18f
         setLineSpacing(dp(4f), 1f)
         setTextIsSelectable(true)
@@ -71,7 +70,7 @@ class WordPicker(
     init {
         val hint = TextView(ctx).apply {
             setText(R.string.picker_hint)
-            setTextColor(textColor and 0x00FFFFFF or 0x99000000.toInt())
+            setTextColor(palette.onSurfaceVariant)
             textSize = 13f
             setPadding(dp(18f).toInt(), 0, dp(18f).toInt(), 0)
         }
@@ -92,7 +91,7 @@ class WordPicker(
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
                 cornerRadius = dp(20f)
-                setColor(if (dark) 0xFF303134.toInt() else Color.WHITE)
+                setColor(palette.surface)
             }
             elevation = dp(8f)
             addView(scroll, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
@@ -159,7 +158,7 @@ class WordPicker(
 
     private fun button(textRes: Int, onClick: () -> Unit) = TextView(ctx).apply {
         setText(textRes)
-        setTextColor(textColor)
+        setTextColor(palette.accent)
         textSize = 15f
         val padH = dp(16f).toInt()
         val padV = dp(11f).toInt()

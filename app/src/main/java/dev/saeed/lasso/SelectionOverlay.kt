@@ -2,7 +2,6 @@ package dev.saeed.lasso
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
@@ -46,12 +45,11 @@ class SelectionOverlay(
     private val onDismiss: () -> Unit,
 ) : FrameLayout(context) {
 
-    private val dark = context.resources.configuration.uiMode and
-        Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
+    private val palette = Palette(context)
 
     private fun dp(v: Float) = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v, resources.displayMetrics)
 
-    private val accent = if (dark) 0xFF8AB4F8.toInt() else 0xFF1A73E8.toInt()
+    private val accent = palette.accent
     private val scrimPaint = Paint().apply { color = 0x8C000000.toInt() }
     private val clearPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR) }
     private val highlightPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = accent; alpha = 0x66 }
@@ -91,7 +89,7 @@ class SelectionOverlay(
         orientation = LinearLayout.HORIZONTAL
         background = GradientDrawable().apply {
             cornerRadius = dp(22f)
-            setColor(if (dark) 0xFF303134.toInt() else Color.WHITE)
+            setColor(palette.surface)
         }
         elevation = dp(6f)
         visibility = GONE
@@ -321,7 +319,7 @@ class SelectionOverlay(
     private fun openPicker(block: TextBlock) {
         clearSelection()
         val card = WordPicker(
-            context, block.text.trim(), dark,
+            context, block.text.trim(), palette,
             // Opposite half of the screen from the block, so it stays visible.
             atBottom = block.bounds.centerY() - origin[1] < height / 2,
             maxTextHeight = (height * 0.4f).toInt(),
@@ -366,7 +364,7 @@ class SelectionOverlay(
 
     private fun button(textRes: Int, onClick: () -> Unit) = TextView(context).apply {
         setText(textRes)
-        setTextColor(if (dark) 0xFFE8EAED.toInt() else 0xFF202124.toInt())
+        setTextColor(palette.onSurface)
         textSize = 15f
         val padH = dp(16f).toInt()
         val padV = dp(11f).toInt()
