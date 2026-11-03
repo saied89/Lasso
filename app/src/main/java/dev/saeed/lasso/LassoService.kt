@@ -28,6 +28,7 @@ import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.inputmethod.InputMethodManager
 import android.widget.Toast
+import androidx.annotation.VisibleForTesting
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -57,6 +58,10 @@ class LassoService : AccessibilityService() {
     /** Bumped on every dismiss, so late screen reads from an earlier overlay are ignored. */
     private var session = 0
     private var overlay: SelectionOverlay? = null
+
+    /** The overlay while it's open; for the end-to-end test. Read it on the main thread. */
+    @get:VisibleForTesting
+    internal val openOverlay: SelectionOverlay? get() = overlay.takeIf { state == State.SHOWING }
     /** The app under the overlay, or null if we haven't seen which one it is. */
     private var overlayPackage: String? = null
     /** The app on screen, from window events. Null until the first one arrives. */

@@ -22,6 +22,7 @@ import android.view.View
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.annotation.VisibleForTesting
 import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
@@ -46,6 +47,10 @@ class SelectionOverlay(
 ) : FrameLayout(context) {
 
     private val palette = Palette(context)
+
+    /** The text this overlay shows; for the end-to-end test. */
+    @get:VisibleForTesting
+    internal val text: ScreenText get() = screen
 
     private fun dp(v: Float) = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v, resources.displayMetrics)
 
