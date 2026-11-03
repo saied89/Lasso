@@ -57,13 +57,14 @@ jobs:
           target: google_apis
           arch: x86_64
           disable-animations: true
-          script: ./gradlew connectedDebugAndroidTest
+          # On failure, save the device log for the report.
+          script: ./gradlew connectedDebugAndroidTest || (adb logcat -d > app/build/reports/androidTests/logcat.txt; exit 1)
 
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: e2e-report
-          path: app/build/reports/androidTests/connected/
+          path: app/build/reports/androidTests/
 
   release:
     name: Release

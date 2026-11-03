@@ -80,8 +80,12 @@ class EndToEndTest {
 
             // Copy closes Lasso.
             waitFor("Lasso to close") { onMain { LassoService.instance?.openOverlay == null }.takeIf { it } }
-            val copied = onMain {
-                context.getSystemService(ClipboardManager::class.java).primaryClip?.getItemAt(0)?.text?.toString()
+            // Android only lets an app read the clipboard while it has focus, which the settings
+            // screen gets back a moment after the overlay closes. On slow emulators, keep trying.
+            val copied = waitFor("the copied text on the clipboard") {
+                onMain {
+                    context.getSystemService(ClipboardManager::class.java).primaryClip?.getItemAt(0)?.text?.toString()
+                }
             }
             assertEquals("sentence to test", copied)
         }
