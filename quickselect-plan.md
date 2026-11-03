@@ -43,6 +43,7 @@ The earlier plan (open Recents and auto-tap Pixel Launcher's "Select") was dropp
 | File | Role |
 |---|---|
 | `LassoService.kt` | Back key, accessibility button, trigger, screenshot, app area, overlay window, copy/share, audio focus. |
+| `WindowRules.kt` | Which window events mean another app is in front; when to close or bring back the overlay. |
 | `Ocr.kt` | ML Kit text recognition of the screenshot into `TextBlock`s. |
 | `TextModel.kt` | `TextBlock`, `Word`, `ScreenText`: line boxes, hit testing, building the copied text. |
 | `SelectionOverlay.kt` | Scrim, highlights, handles, toolbar, touch handling. |

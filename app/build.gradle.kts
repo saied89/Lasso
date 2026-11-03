@@ -48,6 +48,12 @@ android {
     buildFeatures {
         compose = true
     }
+    testOptions {
+        // Robolectric tests read the app's strings and themes.
+        unitTests.isIncludeAndroidResources = true
+        // Robolectric's Android 17 sandbox reaches into this JDK package.
+        unitTests.all { it.jvmArgs("--add-opens=java.base/jdk.internal.access=ALL-UNNAMED") }
+    }
 }
 
 dependencies {
@@ -61,6 +67,8 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.mlkit.text.recognition)
     testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)

@@ -39,10 +39,6 @@ class LassoService : AccessibilityService() {
         private const val GOOGLE_TRANSLATE = "com.google.android.apps.translate"
         private const val SCROLL_QUIET_MS = 120L
         private const val SCROLL_WAIT_MAX_MS = 600L
-        /** How long to wait for an app we started to appear before giving up on it. */
-        private const val RETURN_WAIT_MS = 3000L
-        /** After this long in another app, the frozen screen is likely stale; close instead. */
-        private const val HIDDEN_MAX_MS = 5 * 60_000L
 
         @Volatile
         var instance: LassoService? = null
@@ -123,26 +119,15 @@ class LassoService : AccessibilityService() {
             AccessibilityEvent.TYPE_VIEW_SCROLLED -> lastScrollAt = SystemClock.uptimeMillis()
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
                 val pkg = event.packageName?.toString() ?: return
-                if (!isAppWindow(pkg, event.className?.toString())) return
+                val keyboards = getSystemService(InputMethodManager::class.java).enabledInputMethodList
+                    .mapTo(mutableSetOf()) { it.packageName }
+                val className = event.className?.toString()
+                if (!WindowRules.isAppWindow(pkg, className, packageName, MainActivity::class.java.name, keyboards)) return
                 foreground = pkg
-                // Another app came to the front (e.g. an incoming call): our boxes no longer match.
-                val under = overlayPackage
-                if (state == State.SHOWING && under != null && pkg != under) dismiss()
+                if (state == State.SHOWING && WindowRules.closesOverlay(pkg, overlayPackage)) dismiss()
                 if (state == State.HIDDEN) scheduleReturnCheck()
             }
         }
-    }
-
-    /**
-     * Whether a window event means an app came to the front. The status bar, the keyboard and
-     * Lasso's own windows also send these, but the app below stays where it was.
-     */
-    private fun isAppWindow(pkg: String, className: String?): Boolean {
-        if (pkg == "com.android.systemui") return false
-        // Ours: only the settings screen counts. The overlay and the Quick Tap entry don't.
-        if (pkg == packageName) return className == MainActivity::class.java.name
-        val keyboards = getSystemService(InputMethodManager::class.java).enabledInputMethodList
-        return keyboards.none { it.packageName == pkg }
     }
 
     // ---- Keys ----
@@ -363,7 +348,7 @@ class LassoService : AccessibilityService() {
         sawOtherApp = false
         hiddenAt = SystemClock.uptimeMillis()
         // In case the other app never shows up.
-        main.postDelayed(checkReturn, RETURN_WAIT_MS)
+        main.postDelayed(checkReturn, WindowRules.RETURN_WAIT_MS)
     }
 
     private fun scheduleReturnCheck() {
@@ -377,15 +362,13 @@ class LassoService : AccessibilityService() {
      */
     private fun checkReturn() {
         if (state != State.HIDDEN) return
-        val top = foreground ?: return
+        val front = foreground ?: return
         val elapsed = SystemClock.uptimeMillis() - hiddenAt
-        when {
-            top == overlayPackage -> {
-                // Right after hiding, the app is still on top until the other one opens.
-                if (sawOtherApp || elapsed >= RETURN_WAIT_MS) restore()
-            }
-            top == homeScreenPackage() || elapsed > HIDDEN_MAX_MS -> dismiss()
-            else -> sawOtherApp = true
+        when (WindowRules.whileHidden(front, overlayPackage, homeScreenPackage(), sawOtherApp, elapsed)) {
+            WindowRules.Return.RESTORE -> restore()
+            WindowRules.Return.CLOSE -> dismiss()
+            WindowRules.Return.OTHER_APP_SHOWN -> sawOtherApp = true
+            WindowRules.Return.WAIT -> Unit
         }
     }
 

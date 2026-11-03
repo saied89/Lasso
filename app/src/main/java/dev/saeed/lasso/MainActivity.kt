@@ -78,14 +78,19 @@ private fun isServiceEnabled(context: Context): Boolean {
 private fun isRestricted(context: Context): Boolean {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return false
     val source = context.packageManager.getInstallSourceInfo(context.packageName).packageSource
-    return source == PackageInstaller.PACKAGE_SOURCE_LOCAL_FILE ||
-        source == PackageInstaller.PACKAGE_SOURCE_DOWNLOADED_FILE
+    return isRestrictedSource(Build.VERSION.SDK_INT, source)
 }
 
-/** How this phone can open an app with a double tap on its back, if it can. */
-private enum class BackTap { QUICK_TAP, SAMSUNG, NONE }
+/** [isRestricted] for an Android version and a `PackageInstaller.PACKAGE_SOURCE_*` value. */
+internal fun isRestrictedSource(sdk: Int, packageSource: Int): Boolean =
+    sdk >= Build.VERSION_CODES.TIRAMISU &&
+        (packageSource == PackageInstaller.PACKAGE_SOURCE_LOCAL_FILE ||
+            packageSource == PackageInstaller.PACKAGE_SOURCE_DOWNLOADED_FILE)
 
-private fun backTap(context: Context) = when {
+/** How this phone can open an app with a double tap on its back, if it can. */
+internal enum class BackTap { QUICK_TAP, SAMSUNG, NONE }
+
+internal fun backTap(context: Context) = when {
     // Set by Pixels that have Quick Tap; missing on older Pixels and other phones.
     context.packageManager.hasSystemFeature("com.google.android.feature.QUICK_TAP") -> BackTap.QUICK_TAP
     Build.MANUFACTURER.equals("samsung", ignoreCase = true) -> BackTap.SAMSUNG

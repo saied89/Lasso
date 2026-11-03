@@ -29,44 +29,51 @@ class Ocr : AutoCloseable {
         return result.textBlocks.flatMap { it.lines }
             // Icons read as text ("-)", "iii") score below this; real text scores 0.75 and up.
             .filter { it.confidence >= MIN_CONFIDENCE }
-            .mapNotNull(::toBlock)
+            .mapNotNull { line -> lineBlock(line.elements.mapNotNull(::wordOf)) }
     }
 
-    private fun toBlock(line: Text.Line): TextBlock? {
-        val elements = line.elements.filter { it.boundingBox != null && it.text.isNotBlank() }
-        if (elements.isEmpty()) return null
-        // Words joined by single spaces, so we know which character each box belongs to.
-        val text = StringBuilder()
-        val boxes = mutableListOf<RectF?>()
-        for (element in elements) {
-            if (text.isNotEmpty()) {
-                text.append(' ')
-                boxes += null
-            }
-            text.append(element.text)
-            boxes += charBoxes(element)
-        }
-        val bounds = Rect(elements[0].boundingBox!!).apply { elements.forEach { union(it.boundingBox!!) } }
-        return TextBlock(text.toString(), bounds, boxes.toTypedArray())
-    }
-
-    /** Boxes of each character of a word: from the recognizer if it has them, else evenly split. */
-    private fun charBoxes(element: Text.Element): List<RectF> {
-        val word = element.text
-        val symbols = element.symbols
-        if (symbols.size == word.length && symbols.all { it.boundingBox != null }) {
-            return symbols.map { RectF(it.boundingBox!!) }
-        }
-        val box = element.boundingBox!!
-        val step = box.width().toFloat() / word.length
-        return List(word.length) { i ->
-            RectF(box.left + i * step, box.top.toFloat(), box.left + (i + 1) * step, box.bottom.toFloat())
-        }
+    private fun wordOf(element: Text.Element): RecognizedWord? {
+        val box = element.boundingBox ?: return null
+        val symbols = element.symbols.mapNotNull { it.boundingBox }
+        val perChar = symbols.size == element.symbols.size && symbols.size == element.text.length
+        return RecognizedWord(element.text, box, symbols.takeIf { perChar })
     }
 
     override fun close() = recognizer.close()
 
     private companion object {
         const val MIN_CONFIDENCE = 0.65f
+    }
+}
+
+/** A recognized word, with a box per character if the recognizer gave one for each. */
+internal class RecognizedWord(val text: String, val box: Rect, val charBoxes: List<Rect>?)
+
+/** One line of recognized words as a [TextBlock], or null if it has no text. */
+internal fun lineBlock(words: List<RecognizedWord>): TextBlock? {
+    val used = words.filter { it.text.isNotBlank() }
+    if (used.isEmpty()) return null
+    // Words joined by single spaces, so we know which character each box belongs to.
+    val text = StringBuilder()
+    val boxes = mutableListOf<RectF?>()
+    for (word in used) {
+        if (text.isNotEmpty()) {
+            text.append(' ')
+            boxes += null
+        }
+        text.append(word.text)
+        boxes += charBoxes(word)
+    }
+    val bounds = Rect(used[0].box).apply { used.forEach { union(it.box) } }
+    return TextBlock(text.toString(), bounds, boxes.toTypedArray())
+}
+
+/** Boxes of each character of a word: from the recognizer if it has them, else evenly split. */
+private fun charBoxes(word: RecognizedWord): List<RectF> {
+    word.charBoxes?.let { return it.map(::RectF) }
+    val box = word.box
+    val step = box.width().toFloat() / word.text.length
+    return List(word.text.length) { i ->
+        RectF(box.left + i * step, box.top.toFloat(), box.left + (i + 1) * step, box.bottom.toFloat())
     }
 }
