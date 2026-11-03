@@ -93,6 +93,14 @@ private fun SettingsScreen(serviceEnabled: Boolean, modifier: Modifier = Modifie
                 style = MaterialTheme.typography.bodySmall,
             )
         }
+        Column {
+            Text("Floating button or two-finger swipe", style = MaterialTheme.typography.bodyLarge)
+            Text(
+                "Works on any phone. In the Settings app, open Accessibility → Lasso → Lasso shortcut, " +
+                    "and pick the accessibility button or gesture. Tap it again to close Lasso.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
         SettingSwitch(Prefs.VOLUME_TRIGGER, "Double-press Volume Down", "Opens text selection.")
         SettingSwitch(Prefs.RESTORE_VOLUME, "Undo the volume change", "The first press lowers the volume one step. Raise it back.")
         SettingSwitch(Prefs.OCR, "Recognize text in the screenshot", "Makes words selectable in web views, images and games. Text is recognized on the phone.")

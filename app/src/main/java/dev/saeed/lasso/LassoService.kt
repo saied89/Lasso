@@ -1,5 +1,6 @@
 package dev.saeed.lasso
 
+import android.accessibilityservice.AccessibilityButtonController
 import android.accessibilityservice.AccessibilityService
 import android.app.KeyguardManager
 import android.content.ClipData
@@ -82,8 +83,20 @@ class LassoService : AccessibilityService() {
     private var hiddenAt = 0L
     private val checkReturn = Runnable { checkReturn() }
 
+    /** The accessibility button or gesture: opens Lasso, or closes it when it's open. */
+    private val buttonCallback = object : AccessibilityButtonController.AccessibilityButtonCallback() {
+        override fun onClicked(controller: AccessibilityButtonController) {
+            when (state) {
+                State.IDLE -> trigger()
+                State.SHOWING -> dismiss()
+                else -> Unit
+            }
+        }
+    }
+
     override fun onServiceConnected() {
         instance = this
+        accessibilityButtonController.registerAccessibilityButtonCallback(buttonCallback, main)
     }
 
     override fun onDestroy() {
@@ -95,6 +108,7 @@ class LassoService : AccessibilityService() {
     }
 
     override fun onUnbind(intent: Intent?): Boolean {
+        accessibilityButtonController.unregisterAccessibilityButtonCallback(buttonCallback)
         dismiss()
         instance = null
         return super.onUnbind(intent)
