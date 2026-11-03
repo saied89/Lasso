@@ -4,6 +4,7 @@ import android.content.ActivityNotFoundException
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageInstaller
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -42,6 +43,7 @@ import dev.saeed.lasso.ui.theme.LassoTheme
 
 class MainActivity : ComponentActivity() {
     private var serviceEnabled by mutableStateOf(false)
+    private var restricted by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -49,7 +51,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             LassoTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { padding ->
-                    SettingsScreen(serviceEnabled, Modifier.padding(padding))
+                    SettingsScreen(serviceEnabled, restricted, Modifier.padding(padding))
                 }
             }
         }
@@ -58,6 +60,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         serviceEnabled = isServiceEnabled(this)
+        restricted = isRestricted(this)
     }
 }
 
@@ -65,6 +68,18 @@ private fun isServiceEnabled(context: Context): Boolean {
     val ours = ComponentName(context, LassoService::class.java)
     val enabled = Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: return false
     return enabled.split(':').any { ComponentName.unflattenFromString(it) == ours }
+}
+
+/**
+ * Whether Android may block turning on Lasso's service until the user allows restricted settings.
+ * Android 13+ does this only for apps installed from a file, not from an app store or adb.
+ * Whether the user already allowed it can't be read without a system permission.
+ */
+private fun isRestricted(context: Context): Boolean {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return false
+    val source = context.packageManager.getInstallSourceInfo(context.packageName).packageSource
+    return source == PackageInstaller.PACKAGE_SOURCE_LOCAL_FILE ||
+        source == PackageInstaller.PACKAGE_SOURCE_DOWNLOADED_FILE
 }
 
 /** How this phone can open an app with a double tap on its back, if it can. */
@@ -87,7 +102,7 @@ private fun openQuickTapSettings(context: Context) {
 }
 
 @Composable
-private fun SettingsScreen(serviceEnabled: Boolean, modifier: Modifier = Modifier) {
+private fun SettingsScreen(serviceEnabled: Boolean, restricted: Boolean, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val backTap = remember { backTap(context) }
     Column(
@@ -108,7 +123,7 @@ private fun SettingsScreen(serviceEnabled: Boolean, modifier: Modifier = Modifie
                 Text("Lasso is on.", Modifier.padding(16.dp), style = MaterialTheme.typography.titleMedium)
             }
         } else {
-            DisclosureCard(onAgree = { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) })
+            DisclosureCard(restricted, onAgree = { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) })
         }
 
         Text("Settings", style = MaterialTheme.typography.titleMedium)
@@ -158,7 +173,7 @@ private fun SettingsScreen(serviceEnabled: Boolean, modifier: Modifier = Modifie
 
 /** Google Play requires telling users what the accessibility service does before they turn it on. */
 @Composable
-private fun DisclosureCard(onAgree: () -> Unit) {
+private fun DisclosureCard(restricted: Boolean, onAgree: () -> Unit) {
     Card {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Turn on Lasso", style = MaterialTheme.typography.titleMedium)
@@ -168,11 +183,13 @@ private fun DisclosureCard(onAgree: () -> Unit) {
                     "• watch for the Back key while Lasso is open, to close it\n\n" +
                     "Nothing is saved or sent anywhere. Lasso has no internet access."
             )
-            Text(
-                "If you installed Lasso from a file, Android may block the switch. Open App info → ⋮ → " +
-                    "Allow restricted settings, then try again.",
-                style = MaterialTheme.typography.bodySmall,
-            )
+            if (restricted) {
+                Text(
+                    "Android may block the switch because Lasso was installed from a file. Open App info → ⋮ → " +
+                        "Allow restricted settings, then try again.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
             Button(onClick = onAgree) { Text("Agree and open settings") }
         }
     }
