@@ -25,7 +25,7 @@ CHROME = os.environ.get("CHROME") or shutil.which("google-chrome") or shutil.whi
 SCREENSHOTS = [
     ("1.png", "Select text in any app", "Even where Android won't let you"),
     ("2.png", "Copy, share or translate", "Drag across words, adjust with handles"),
-    ("3.png", "Private by design", "Text is recognized on your phone. No internet access."),
+    ("3.png", "Private by design", "On-device, no internet access, open source"),
 ]
 
 BASE = (

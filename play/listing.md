@@ -34,9 +34,7 @@ FEATURES
 • Matches your phone's colors (Material You) and dark theme
 
 PRIVATE BY DESIGN
-Lasso reads text by taking a screenshot when you open it and recognizing the text on your phone. It has no internet permission, so nothing can leave your phone. Nothing is saved. No ads, no analytics, no account.
-
-Lasso is open source: github.com/saied89/Lasso
+Lasso reads text by taking a screenshot when you open it and recognizing the text on your phone. It has no internet permission, so nothing can leave your phone. Nothing is saved. No ads, no analytics, no account. Lasso is open source, so you can check this yourself: github.com/saied89/Lasso
 
 ACCESSIBILITY SERVICE
 Lasso uses Android's accessibility service to take the screenshot when you open it, to show the selection screen over other apps, to provide the accessibility button, and to close when you press Back. It does not read other apps' content, collect data, or act on your behalf.
