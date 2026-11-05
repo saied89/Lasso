@@ -71,6 +71,9 @@ class LassoService : AccessibilityService() {
     /** Created on first use; only touched on the worker thread. */
     private var ocr: Ocr? = null
 
+    /** The text recognizer, created on first use. Call it on the worker thread only. */
+    private fun recognizer() = ocr ?: Ocr().also { ocr = it }
+
     /** Back closed the overlay; swallow the rest of that press so the app below doesn't go back too. */
     private var swallowingBack = false
 
@@ -95,6 +98,7 @@ class LassoService : AccessibilityService() {
     override fun onServiceConnected() {
         instance = this
         accessibilityButtonController.registerAccessibilityButtonCallback(buttonCallback, main)
+        worker.execute { recognizer().warmUp() }
     }
 
     override fun onDestroy() {
@@ -194,7 +198,7 @@ class LassoService : AccessibilityService() {
                 Log.w(TAG, "No screenshot", e)
                 null
             }
-            val recognized = frozen?.let { (ocr ?: Ocr().also { ocr = it }).read(it) }.orEmpty()
+            val recognized = frozen?.let { recognizer().read(it) }.orEmpty()
                 // Skip the clock, notification icons and the navigation bar.
                 .filter { area.contains(it.bounds.centerX(), it.bounds.centerY()) }
                 .sortedWith(compareBy({ it.bounds.top }, { it.bounds.left }))

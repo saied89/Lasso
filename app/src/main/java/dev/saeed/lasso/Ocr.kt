@@ -21,7 +21,7 @@ class Ocr : AutoCloseable {
     /** One block per recognized line, with a box per character. Screenshot pixels are screen pixels. */
     fun read(screenshot: Bitmap): List<TextBlock> {
         val result = try {
-            Tasks.await(recognizer.process(InputImage.fromBitmap(screenshot, 0)), 5, TimeUnit.SECONDS)
+            Tasks.await(recognizer.process(InputImage.fromBitmap(screenshot, 0)), TIMEOUT_S, TimeUnit.SECONDS)
         } catch (e: Exception) {
             Log.w("Lasso", "Text recognition failed", e)
             return emptyList()
@@ -39,10 +39,27 @@ class Ocr : AutoCloseable {
         return RecognizedWord(element.text, box, symbols.takeIf { perChar })
     }
 
+    /**
+     * Loads the recognizer's model by reading a tiny blank image. The first read after startup
+     * is slow (several seconds on slow phones), so do it before the user opens Lasso.
+     */
+    fun warmUp() {
+        val blank = Bitmap.createBitmap(32, 32, Bitmap.Config.ARGB_8888)
+        try {
+            Tasks.await(recognizer.process(InputImage.fromBitmap(blank, 0)), TIMEOUT_S, TimeUnit.SECONDS)
+        } catch (e: Exception) {
+            Log.w("Lasso", "Text recognizer warm-up failed", e)
+        } finally {
+            blank.recycle()
+        }
+    }
+
     override fun close() = recognizer.close()
 
     private companion object {
         const val MIN_CONFIDENCE = 0.65f
+        /** Generous, for the first read on a slow phone; later reads take well under a second. */
+        const val TIMEOUT_S = 15L
     }
 }
 
