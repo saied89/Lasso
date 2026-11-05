@@ -6,7 +6,7 @@ Everything needed to create the Play listing, in the order Play Console asks for
 
 | File | Use |
 |---|---|
-| `Lasso-1.1.1.aab` | The App Bundle to upload (version 1.1.1, code 3), signed with your key in `~/.config/lasso/`. Not in git; see [Rebuilding the bundle](#rebuilding-the-bundle). |
+| `Lasso-1.1.2.aab` | The App Bundle to upload (version 1.1.2, code 4), signed with your key in `~/.config/lasso/`. Not in git; see [Rebuilding the bundle](#rebuilding-the-bundle). |
 | `lasso-play-declaration.mp4` | Video for the Accessibility API declaration. Not in git; a copy is in `~/Videos/`. |
 | `graphics/icon-512.png` | App icon, 512×512 |
 | `graphics/feature-graphic.png` | Feature graphic, 1024×500 |
@@ -74,13 +74,14 @@ Policy → App content → Sensitive permissions and APIs (it appears after the 
 
   > Lasso lets users select, copy, share and translate text that apps don't let them select. When the user opens Lasso (with the accessibility button, a gesture, or Pixel's Quick Tap), the accessibility service takes one screenshot with takeScreenshot() and recognizes the text in it on the device with ML Kit. It shows the selection screen over the current app as an accessibility overlay, provides the accessibility button, and filters the Back key so Back closes Lasso without affecting the app below. The service can't read window content (canRetrieveWindowContent is false), performs no actions on other apps, and the app has no internet permission. Nothing is stored or sent.
 
-- **Video:** upload `lasso-play-declaration.mp4` to YouTube as **unlisted** and paste the link. It shows the in-app disclosure in full, the consent tap, turning on the service, and Lasso in use.
+- **Video:** upload `lasso-play-declaration.mp4` to YouTube as **unlisted** and paste the link. It shows the disclosure dialog in full, the tap on Agree, turning on the service, and Lasso in use.
+- The disclosure must be a dialog with two buttons (Agree and No thanks). A single "OK" or "Continue" button was rejected in review.
 
 Submit this form again whenever the way the service is used changes.
 
 ## 7. Release
 
-1. Testing → Closed testing → create a track, add your testers' emails (or a Google Group), upload `Lasso-1.1.1.aab`, and roll out.
+1. Testing → Closed testing → create a track, add your testers' emails (or a Google Group), upload `Lasso-1.1.2.aab`, and roll out.
 2. After 14 days with 12+ testers, apply for production access in the Dashboard.
 3. Once approved, promote the closed-testing release to production, or create a production release with a newer bundle.
 

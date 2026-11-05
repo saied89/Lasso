@@ -157,6 +157,11 @@ class LassoService : AccessibilityService() {
     fun trigger(delayMs: Long = 0) {
         main.postDelayed({
             if (state != State.IDLE) return@postDelayed
+            // Turned on in Android's settings without agreeing to the disclosure: show it instead.
+            if (!Prefs.consented(this)) {
+                startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                return@postDelayed
+            }
             val power = getSystemService(PowerManager::class.java)
             val keyguard = getSystemService(KeyguardManager::class.java)
             if (!power.isInteractive || keyguard.isKeyguardLocked) return@postDelayed

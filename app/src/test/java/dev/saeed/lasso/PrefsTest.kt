@@ -24,4 +24,11 @@ class PrefsTest {
         Prefs.set(context, Prefs.PAUSE_MEDIA, true)
         assertTrue(Prefs.pauseMedia(context))
     }
+
+    @Test
+    fun noConsentUntilTheUserAgrees() {
+        assertFalse(Prefs.consented(context))
+        Prefs.setConsented(context, true)
+        assertTrue(Prefs.consented(context))
+    }
 }

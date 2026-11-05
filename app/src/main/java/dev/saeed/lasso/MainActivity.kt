@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -125,12 +126,21 @@ private fun SettingsScreen(serviceEnabled: Boolean, restricted: Boolean, modifie
             else "Double-tap the back of your phone, or tap the accessibility button, in any app. The screen dims, and all text becomes selectable."
         )
 
-        if (serviceEnabled) {
+        var consented by remember { mutableStateOf(Prefs.consented(context)) }
+        if (serviceEnabled && consented) {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
                 Text("Lasso is on.", Modifier.padding(16.dp), style = MaterialTheme.typography.titleMedium)
             }
         } else {
-            DisclosureCard(restricted, onAgree = { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) })
+            TurnOnCard(
+                consented = consented,
+                restricted = restricted,
+                onAgree = {
+                    Prefs.setConsented(context, true)
+                    consented = true
+                    context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                },
+            )
         }
 
         Text("Settings", style = MaterialTheme.typography.titleMedium)
@@ -191,18 +201,18 @@ private fun openPrivacyPolicy(context: Context) {
 
 private const val PRIVACY_POLICY_URL = "https://github.com/saied89/Lasso/blob/main/PRIVACY.md"
 
-/** Google Play requires telling users what the accessibility service does before they turn it on. */
+/**
+ * Asks to turn on the accessibility service. Google Play requires a disclosure dialog first, with
+ * separate buttons to agree and to decline; closing it any other way counts as declining.
+ */
 @Composable
-private fun DisclosureCard(restricted: Boolean, onAgree: () -> Unit) {
+private fun TurnOnCard(consented: Boolean, restricted: Boolean, onAgree: () -> Unit) {
+    val context = LocalContext.current
+    var showDisclosure by remember { mutableStateOf(false) }
     Card {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Turn on Lasso", style = MaterialTheme.typography.titleMedium)
-            Text(
-                "Lasso uses Android's accessibility service to:\n" +
-                    "• take a screenshot when you open Lasso, and recognize the text in it on the phone\n" +
-                    "• watch for the Back key while Lasso is open, to close it\n\n" +
-                    "Nothing is saved or sent anywhere. Lasso has no internet access."
-            )
+            Text("Lasso needs Android's accessibility service to read the text on your screen.")
             if (restricted) {
                 Text(
                     "Android may block the switch because Lasso was installed from a file. Open App info → ⋮ → " +
@@ -210,8 +220,37 @@ private fun DisclosureCard(restricted: Boolean, onAgree: () -> Unit) {
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
-            Button(onClick = onAgree) { Text("Agree and open settings") }
+            Button(onClick = {
+                if (consented) context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                else showDisclosure = true
+            }) { Text("Turn on") }
         }
+    }
+    if (showDisclosure) {
+        AlertDialog(
+            onDismissRequest = { showDisclosure = false },
+            title = { Text("Allow Lasso to use accessibility?") },
+            text = {
+                Text(
+                    "Lasso uses Android's accessibility service to:\n" +
+                        "• take a screenshot when you open Lasso, and recognize the text in it on the phone\n" +
+                        "• show the selection screen over other apps\n" +
+                        "• watch for the Back key while Lasso is open, to close it\n\n" +
+                        "Lasso doesn't read anything while it's closed. Nothing is saved or sent anywhere: " +
+                        "Lasso has no internet access.\n\n" +
+                        "If you agree, Android's accessibility settings open so you can turn Lasso on."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDisclosure = false
+                    onAgree()
+                }) { Text("Agree") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDisclosure = false }) { Text("No thanks") }
+            },
+        )
     }
 }
 

@@ -37,6 +37,8 @@ class EndToEndTest {
 
     @Before
     fun turnOnLasso() {
+        // Stands in for agreeing to the disclosure dialog, which Lasso needs before it opens.
+        Prefs.setConsented(context, true)
         servicesBefore = shell("settings get secure enabled_accessibility_services").trim()
             .takeUnless { it.isEmpty() || it == "null" }
         // Keep any other services that were on. Remove Lasso first and add it back: the test
