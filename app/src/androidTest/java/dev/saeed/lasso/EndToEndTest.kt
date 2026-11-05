@@ -69,6 +69,8 @@ class EndToEndTest {
 
             instrumentation.runOnMainSync { LassoService.instance!!.trigger() }
             val overlay = waitFor("the overlay", timeoutMs = 30_000) { onMain { LassoService.instance?.openOverlay } }
+            // On slow emulators the window takes a moment to receive touches; earlier ones are lost.
+            waitFor("the overlay to take input") { onMain { overlay.hasWindowFocus() }.takeIf { it } }
 
             val screen = overlay.text
             val words = screen.words.map { screen.textOf(it.index, it.index) }
@@ -78,7 +80,9 @@ class EndToEndTest {
 
             drag(screen.words[from].box.centerX(), screen.words[from].box.centerY(),
                 screen.words[to].box.centerX(), screen.words[to].box.centerY())
-            tapOn(onMain { overlay.findText(context.getString(R.string.action_copy)) })
+            val copy = onMain { overlay.findText(context.getString(R.string.action_copy)) }
+            waitFor("the toolbar after selecting") { onMain { copy.isShown && copy.width > 0 }.takeIf { it } }
+            tapOn(copy)
 
             // Copy closes Lasso.
             waitFor("Lasso to close") { onMain { LassoService.instance?.openOverlay == null }.takeIf { it } }
